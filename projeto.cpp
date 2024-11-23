@@ -49,6 +49,15 @@ void removerEnter(char* str) {
 	}
 }
 
+int nomeValido(const char* nome) {
+    for (int i = 0; nome[i] != '\0'; i++) {
+        if (!isalpha(nome[i]) && nome[i] != ' ') {
+            return 0; // Nome inválido
+        }
+    }
+    return 1; // Nome válido
+}
+
 void cadastarClientes(Clientes* vet, FILE* arq1){
     int i = 0;
     int status;
@@ -56,7 +65,13 @@ void cadastarClientes(Clientes* vet, FILE* arq1){
     printf("Informe o nome:");
     fgets(vet[i].nome, 30, stdin);
     removerEnter(vet[i].nome);
-
+    // Validação do nome
+        while (!nomeValido(vet[i].nome)) {
+            printf("Nome inválido. Deve conter apenas letras e espaços. Tente novamente: ");
+            fgets(vet[i].nome, 30, stdin);
+            removerEnter(vet[i].nome);
+        }
+        
     printf("Informe o email:");
     fgets(vet[i].email, 30, stdin);
     removerEnter(vet[i].email);
