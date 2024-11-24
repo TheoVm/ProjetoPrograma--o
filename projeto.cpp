@@ -10,17 +10,18 @@ typedef struct clientes{
     int statusRegistro;
 }Clientes;
 
-typedef struct voos{
-    char codigo[30];
-    char origem[100];
-    char destino[100];
-    int dataPartida;
-    int horaPartida;
-    int poltronasExis[6][6];
-    int poltronasDisp[6][6];
-    int valorPassagem;
+typedef struct voo {
+    char codigo[10]; // Código do voo (letras e números)
+    char origem[30];
+    char destino[30];
+    char dataPartida[11]; // Data no formato dd/mm/aaaa
+    char horarioPartida[6]; // Horário no formato hh:mm
+    int poltronasExistentes;
+    int poltronasDisponiveis;
+    char mapaPoltronas[6][6];
+    float valorPassagem;
     int statusRegistro;
-}Voo;
+} Voo;
 
 FILE* prepararArquivos(char* nome) {
     FILE* temp;
@@ -299,14 +300,154 @@ void funcClientes(FILE* arq1){
     }
 }
 
+//////////////////////////////////////////////////////////////////////////////
 
-
-void funcVoos(){
-
+int codigoValido(char* codigo) {
+    for (int i = 0; codigo[i] != '\0'; i++) {
+        if (!isalnum(codigo[i])) {
+            return 0; // Se algum caractere não for letra ou número
+        }
+    }
+    return 1; // Código válido
 }
 
-void funcControle(){
+int vooJaCadastrado(FILE* arq, char* codigo) {
+    Voo voo;
+    fseek(arq, 0, SEEK_SET);
+    while (fread(&voo, sizeof(Voo), 1, arq) == 1) {
+        if (strcmp(voo.codigo, codigo) == 0) {
+            return 1; // Voo já cadastrado
+        }
+    }
+    return 0; // Voo não cadastrado
+}
+
+void cadastrarVoo(FILE* arq) {
+    Voo voo;
+    printf("Digite o código do voo (somente letras e números): ");
+    fgets(voo.codigo, 10, stdin);
+    removerEnter(voo.codigo);
+
+    while (!codigoValido(voo.codigo) || vooJaCadastrado(arq, voo.codigo)) {
+        if (!codigoValido(voo.codigo)) {
+            printf("Código inválido. Tente novamente: ");
+        } else {
+            printf("Voo já cadastrado. Tente outro código: ");
+        }
+        fgets(voo.codigo, 10, stdin);
+        removerEnter(voo.codigo);
+    }
+
+    printf("Digite a origem do voo: ");
+    fgets(voo.origem, 30, stdin);
+    removerEnter(voo.origem);
+
+    printf("Digite o destino do voo: ");
+    fgets(voo.destino, 30, stdin);
+    removerEnter(voo.destino);
+
+    printf("Digite a data de partida (dd/mm/aaaa): ");
+    fgets(voo.dataPartida, 11, stdin);
+    removerEnter(voo.dataPartida);
+
+    printf("Digite o horario de partida (hh:mm): ");
+    fgets(voo.horarioPartida, 6, stdin);
+    removerEnter(voo.horarioPartida);
+
+    voo.poltronasExistentes = 36;
+    voo.poltronasDisponiveis = 36; // No momento do cadastro, todas as poltronas estão disponíveis
+
+    getchar();
+    printf("Digite o valor da passagem: ");
+    fflush(stdin);
+    scanf("%f", &voo.valorPassagem);
+
+    voo.statusRegistro = 1; // Status ativo
+
+    fseek(arq, 0, SEEK_END); // Vai para o final do arquivo
+    if (fwrite(&voo, sizeof(Voo), 1, arq)) {
+        printf("Voo cadastrado com sucesso!\n");
+    } else {
+        printf("Erro ao cadastrar voo.\n");
+    }
+}
+
+void buscarVoos(FILE* arq, char* origem, char* destino, char* data) {
+    Voo voo;
+    int encontrado = 0; // Flag para indicar se algum voo foi encontrado
+
+    fseek(arq, 0, SEEK_SET);  // Vai para o início do arquivo
+
+    while (fread(&voo, sizeof(Voo), 1, arq) == 1) {
+        // Verifica se o voo corresponde aos critérios (origem, destino, data)
+        if (strcmp(voo.origem, origem) == 0 && strcmp(voo.destino, destino) == 0 && strcmp(voo.dataPartida, data) == 0) {
+            // Verifica se há poltronas disponíveis
+            if (voo.poltronasDisponiveis > 0) {
+                // Exibe o voo com poltronas disponíveis
+                printf("Código do voo: %s\n", voo.codigo);
+                printf("Horário de partida: %s\n", voo.horarioPartida);
+                printf("Poltronas disponíveis: %d\n", voo.poltronasDisponiveis);
+
+                // Marca que ao menos um voo foi encontrado
+                encontrado = 1;
+            }
+        }
+    }
+
+    // Se nenhum voo foi encontrado
+    if (!encontrado) {
+        printf("Nenhum voo encontrado com as características solicitadas.\n");
+    }
+}
+
+void buscarVoosMenu(FILE* arq2) {
+    char origem[30], destino[30], data[11];
+
+    printf("Informe a origem do voo: ");
+    fgets(origem, sizeof(origem), stdin);
+    removerEnter(origem);
+
+    printf("Informe o destino do voo: ");
+    fgets(destino, sizeof(destino), stdin);
+    removerEnter(destino);
+
+    printf("Informe a data de partida (dd/mm/aaaa): ");
+    fgets(data, sizeof(data), stdin);
+    removerEnter(data);
+
+    buscarVoos(arq2, origem, destino, data);
+}
+
+void funcVoos(FILE* arq2){
+    int escolha, continuar = 1;
     
+    while (continuar == 1){
+        printf("\nQual funcionalidades deseja acessar? \n");
+        printf("1 - Cadastrar Voo \n");
+        printf("2 - Buscar Voo \n");
+        printf("5 - Voltar \n");
+        printf("Digite sua escolha: ");
+        scanf("%d", &escolha);
+        getchar();
+     
+        switch (escolha){
+            case 1:
+                cadastrarVoo(arq2);
+                break;
+            case 2:
+                buscarVoosMenu(arq2);
+                break;
+            case 3:
+                break;
+            case 4:
+                break;
+            case 5:
+                continuar = 0;
+                break;
+            default:
+                printf("Digite uma opção válida. \n");
+        }
+    }
 }
 
 void removerFisicamenteClientes(FILE* arq1) {
@@ -370,10 +511,10 @@ int main() {
                             funcClientes(arq1);
                             break;
                         case 2:
-                            funcVoos();
+                            funcVoos(arq2);
                             break;
                         case 3:
-                            funcControle();
+                            // funcControle(arq3);
                             break;
                         case 4:
                             continuar = 0;
