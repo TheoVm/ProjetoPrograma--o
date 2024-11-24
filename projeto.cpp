@@ -291,6 +291,31 @@ void funcControle(){
     
 }
 
+void removerFisicamenteClientes(FILE* arq1) {
+    FILE* temp = fopen("tempClientes.bin", "w+b");
+    if (!temp) {
+        perror("Erro ao criar arquivo temporário");
+        return;
+    }
+
+    Clientes cliente;
+    fseek(arq1, 0, SEEK_SET);
+
+    while (fread(&cliente, sizeof(Clientes), 1, arq1)) {
+        if (cliente.statusRegistro == 1) {
+            fwrite(&cliente, sizeof(Clientes), 1, temp);
+        }
+    }
+
+    fclose(arq1);
+    fclose(temp);
+
+    remove("Clientes.bin");
+    rename("tempClientes.bin", "Clientes.bin");
+
+    printf("Remoção física concluída! Registros removidos foram excluídos permanentemente.\n");
+}
+
 int main() {
     char nomeArq1[100] = "Clientes.bin",nomeArq2[100] = "Voos.bin", nomeArq3[100] = "Passagens.bin";
     int escolha, continuar = 1;
@@ -339,7 +364,7 @@ int main() {
                             printf("Digite uma opção válida. \n");
                     }
                 }
-                fecharArq(arq1);
+                removerFisicamenteClientes(arq1);
                 fecharArq(arq2);
                 fecharArq(arq3);
             }
