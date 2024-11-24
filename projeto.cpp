@@ -119,7 +119,7 @@ void cadastarClientes(FILE* arq1){
     fgets(vet.email, sizeof(vet.email), stdin);
     removerEnter(vet.email);
 
-    printf("Informe o CPF (somente números): ");
+    printf("Informe o CPF (somente numeros e 11 digitos): ");
     fgets(vet.cpf, sizeof(vet.cpf), stdin);
     removerEnter(vet.cpf);
     while (!cpfValido(vet.cpf) || consultarCliente(arq1, vet.cpf) != -1) {
@@ -437,7 +437,14 @@ void cadastrarVoo(FILE* arq) {
     voo.poltronasExistentes = 36;
     voo.poltronasDisponiveis = 36; // No momento do cadastro, todas as poltronas estão disponíveis
 
-    getchar();
+    // Inicializando o mapa de poltronas, todas as poltronas são 'L' (disponíveis)
+    for (int i = 0; i < 6; i++) {
+        for (int j = 0; j < 6; j++) {
+            voo.mapaPoltronas[i][j] = 'L';  // 'L' significa disponível
+        }
+    }
+
+    getchar(); // Limpar o buffer do teclado
     printf("Digite o valor da passagem: ");
     fflush(stdin);
     scanf("%f", &voo.valorPassagem);
@@ -536,10 +543,27 @@ void funcVoos(FILE* arq2) {
 
 //////////////////////////////////////////////////////////////////////////////
 
+void imprimirMapaPoltronas(Voo* voo) {
+    printf("Mapa de Poltronas: \n");
+    char letras[] = {'A', 'B', 'C', 'D', 'E', 'F'};
+    
+    for (int i = 0; i < 6; i++) {  // Para cada linha de poltronas (6 linhas)
+        for (int j = 0; j < 6; j++) {  // Para cada coluna de poltronas (6 colunas)
+            int poltronaNumero = i * 6 + j + 1;  // Número da poltrona (de 1 a 36)
+            if (voo->mapaPoltronas[i][j] == 'L') {  // 'L' significa disponível
+                printf("%c%d ", letras[j], poltronaNumero);  // Exibe a letra e número da poltrona disponível
+            } else {
+                printf("XX ");  // XX para poltrona ocupada
+            }
+        }
+        printf("\n");
+    }
+}
+
 int verificarPoltronaDisponivel(Voo* voo, int poltrona) {
     int linha = (poltrona - 1) / 6;
     int coluna = (poltrona - 1) % 6;
-    return voo->mapaPoltronas[linha][coluna] == 'L';
+    return voo->mapaPoltronas[linha][coluna] == 'L';  // 'L' significa disponível
 }
 
 void comprarPassagem(FILE* arqClientes, FILE* arqVoos, FILE* arqPassagens) {
@@ -548,7 +572,7 @@ void comprarPassagem(FILE* arqClientes, FILE* arqVoos, FILE* arqPassagens) {
     int posicaoVoo, poltronaEscolhida;
 
     // Código da reserva (deve ser único)
-    printf("Digite o codigo da reserva: ");
+    printf("Digite o código da reserva: ");
     fgets(novaPassagem.codigoReserva, sizeof(novaPassagem.codigoReserva), stdin);
     removerEnter(novaPassagem.codigoReserva);
 
@@ -572,7 +596,7 @@ void comprarPassagem(FILE* arqClientes, FILE* arqVoos, FILE* arqPassagens) {
     }
 
     // Código do voo
-    printf("Digite o codigo do voo: ");
+    printf("Digite o código do voo: ");
     fflush(stdin);
     fgets(novaPassagem.codigoVoo, sizeof(novaPassagem.codigoVoo), stdin);
     removerEnter(novaPassagem.codigoVoo);
@@ -592,13 +616,17 @@ void comprarPassagem(FILE* arqClientes, FILE* arqVoos, FILE* arqPassagens) {
         return;
     }
 
+    // Imprimir mapa de poltronas disponíveis
+    imprimirMapaPoltronas(&voo);
+
     // Escolha da poltrona
     printf("Escolha uma poltrona (1-36): ");
     scanf("%d", &poltronaEscolhida);
     getchar();
 
-    while (poltronaEscolhida < 1 || poltronaEscolhida > 36 || verificarPoltronaDisponivel(&voo, poltronaEscolhida)) {
-        printf("Poltrona invalida ou ja ocupada. Escolha novamente: ");
+    while (poltronaEscolhida < 1 || poltronaEscolhida > 36 || !verificarPoltronaDisponivel(&voo, poltronaEscolhida)) {
+        printf("Poltrona inválida ou já ocupada. Escolha novamente: ");
+        fflush(stdin);
         scanf("%d", &poltronaEscolhida);
         getchar();
     }
@@ -609,7 +637,7 @@ void comprarPassagem(FILE* arqClientes, FILE* arqVoos, FILE* arqPassagens) {
     // Atualização do voo
     int linha = (poltronaEscolhida - 1) / 6;
     int coluna = (poltronaEscolhida - 1) % 6;
-    voo.mapaPoltronas[linha][coluna] = 'O';
+    voo.mapaPoltronas[linha][coluna] = 'O';  // 'O' significa ocupada
     voo.poltronasDisponiveis--;
 
     fseek(arqVoos, posicaoVoo, SEEK_SET);
@@ -619,7 +647,7 @@ void comprarPassagem(FILE* arqClientes, FILE* arqVoos, FILE* arqPassagens) {
     fseek(arqPassagens, 0, SEEK_END);
     fwrite(&novaPassagem, sizeof(Passagem), 1, arqPassagens);
 
-    printf("Passagem comprada com sucesso! Codigo da reserva: %s\n", novaPassagem.codigoReserva);
+    printf("Passagem comprada com sucesso! Código da reserva: %s\n", novaPassagem.codigoReserva);
 }
 
 void consultarPassagensCliente(FILE* arqClientes, FILE* arqPassagens) {
@@ -822,6 +850,32 @@ void removerFisicamenteClientes(FILE* arq1) {
     printf("Remocao fisica concluida! Registros removidos foram excluidos permanentemente.\n");
 }
 
+void removerFisicamenteVoos(FILE* arq2) {
+    FILE* temp = fopen("tempVoos.dat", "w+b");
+    if (!temp) {
+        perror("Erro ao criar arquivo temporário");
+        return;
+    }
+
+    Voo voo;
+    fseek(arq2, 0, SEEK_SET);
+
+    while (fread(&voo, sizeof(Voo), 1, arq2)) {
+        if (voo.statusRegistro == 1) {  // Apenas voos ativos (statusRegistro == 1) são mantidos
+            fwrite(&voo, sizeof(Voo), 1, temp);
+        }
+    }
+
+    fclose(arq2);
+    fclose(temp);
+
+    remove("Voos.dat");
+    rename("tempVoos.dat", "Voos.dat");
+
+    printf("Remoção física concluída! Voos removidos foram excluídos permanentemente.\n");
+}
+
+
 int main() {
     char nomeArq1[100] = "Clientes.dat",nomeArq2[100] = "Voos.dat", nomeArq3[100] = "Passagens.dat";
     int escolha, continuar = 1;
@@ -842,7 +896,8 @@ int main() {
                 printf ("Erro ao tentar criar/abrir arquivo %s \n",nomeArq3);
                 fecharArq(arq1);
                 fecharArq(arq2);
-            } else { 
+            } else {
+                printf("Bem-vindo A Brasil Linhas Aereas!\n");
                 while (continuar == 1){
                     printf("Qual funcionalidades deseja acessar? \n");
                     printf("1 - Cliente \n");
@@ -871,6 +926,8 @@ int main() {
                     }
                 }
                 removerFisicamenteClientes(arq1);
+                removerFisicamenteVoos(arq2);
+                fecharArq(arq1);
                 fecharArq(arq2);
                 fecharArq(arq3);
             }
