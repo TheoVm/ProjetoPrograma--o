@@ -23,6 +23,14 @@ typedef struct voo {
     int statusRegistro;
 } Voo;
 
+typedef struct passagem {
+    char codigoReserva[15];
+    char cpfCliente[12];
+    char codigoVoo[10];
+    int numeroPoltrona;
+    int statusRegistro; // 1 - Ativo, 0 - Deletado
+} Passagem;
+
 FILE* prepararArquivos(char* nome) {
     FILE* temp;
     temp = fopen (nome,"r+b");
@@ -528,8 +536,249 @@ void funcVoos(FILE* arq2) {
 
 //////////////////////////////////////////////////////////////////////////////
 
+int verificarPoltronaDisponivel(Voo* voo, int poltrona) {
+    int linha = (poltrona - 1) / 6;
+    int coluna = (poltrona - 1) % 6;
+    return voo->mapaPoltronas[linha][coluna] == 'L';
+}
 
+void comprarPassagem(FILE* arqClientes, FILE* arqVoos, FILE* arqPassagens) {
+    Passagem novaPassagem;
+    Voo voo;
+    int posicaoVoo, poltronaEscolhida;
 
+    // Código da reserva (deve ser único)
+    printf("Digite o codigo da reserva: ");
+    fgets(novaPassagem.codigoReserva, sizeof(novaPassagem.codigoReserva), stdin);
+    removerEnter(novaPassagem.codigoReserva);
+
+    fseek(arqPassagens, 0, SEEK_SET);
+    Passagem passagemTemp;
+    while (fread(&passagemTemp, sizeof(Passagem), 1, arqPassagens)) {
+        if (strcmp(passagemTemp.codigoReserva, novaPassagem.codigoReserva) == 0) {
+            printf("Código de reserva já utilizado. Tente novamente.\n");
+            return;
+        }
+    }
+
+    // CPF do cliente
+    printf("Digite o CPF do cliente: ");
+    fgets(novaPassagem.cpfCliente, sizeof(novaPassagem.cpfCliente), stdin);
+    removerEnter(novaPassagem.cpfCliente);
+
+    if (consultarCliente(arqClientes, novaPassagem.cpfCliente) == -1) {
+        printf("Cliente não cadastrado.\n");
+        return;
+    }
+
+    // Código do voo
+    printf("Digite o codigo do voo: ");
+    fgets(novaPassagem.codigoVoo, sizeof(novaPassagem.codigoVoo), stdin);
+    removerEnter(novaPassagem.codigoVoo);
+
+    posicaoVoo = consultarVoo(arqVoos, novaPassagem.codigoVoo);
+    if (posicaoVoo == -1) {
+        printf("Voo não encontrado.\n");
+        return;
+    }
+
+    // Leitura do voo e verificação de disponibilidade
+    fseek(arqVoos, posicaoVoo, SEEK_SET);
+    fread(&voo, sizeof(Voo), 1, arqVoos);
+
+    if (voo.poltronasDisponiveis == 0) {
+        printf("Não há poltronas disponíveis nesse voo.\n");
+        return;
+    }
+
+    // Escolha da poltrona
+    printf("Escolha uma poltrona (1-36): ");
+    scanf("%d", &poltronaEscolhida);
+    getchar();
+
+    while (poltronaEscolhida < 1 || poltronaEscolhida > 36 || !verificarPoltronaDisponivel(&voo, poltronaEscolhida)) {
+        printf("Poltrona inválida ou já ocupada. Escolha novamente: ");
+        scanf("%d", &poltronaEscolhida);
+        getchar();
+    }
+
+    novaPassagem.numeroPoltrona = poltronaEscolhida;
+    novaPassagem.statusRegistro = 1;
+
+    // Atualização do voo
+    int linha = (poltronaEscolhida - 1) / 6;
+    int coluna = (poltronaEscolhida - 1) % 6;
+    voo.mapaPoltronas[linha][coluna] = 'O';
+    voo.poltronasDisponiveis--;
+
+    fseek(arqVoos, posicaoVoo, SEEK_SET);
+    fwrite(&voo, sizeof(Voo), 1, arqVoos);
+
+    // Gravação da passagem
+    fseek(arqPassagens, 0, SEEK_END);
+    fwrite(&novaPassagem, sizeof(Passagem), 1, arqPassagens);
+
+    printf("Passagem comprada com sucesso! Código da reserva: %s\n", novaPassagem.codigoReserva);
+}
+
+void consultarPassagensCliente(FILE* arqClientes, FILE* arqPassagens) {
+    char cpfCliente[12]; // CPF formatado como string
+    Clientes cliente;
+    Passagem passagem;
+    int encontrado = 0;
+
+    // Solicitar CPF ao usuário
+    printf("Digite o CPF do cliente (apenas números): ");
+    scanf("%11s", cpfCliente);
+    getchar();
+
+    // Usar a função consultarCliente para validar e obter o cliente
+    if (!consultarCliente(arqClientes, cpfCliente)) {
+        printf("CPF não encontrado. Verifique o CPF e tente novamente.\n");
+        return;
+    }
+
+    // Mostrar informações do cliente
+    printf("Cliente encontrado: %s\n", cliente.nome);
+
+    // Consultar passagens relacionadas ao CPF
+    fseek(arqPassagens, 0, SEEK_SET);
+    while (fread(&passagem, sizeof(Passagem), 1, arqPassagens)) {
+        if (strcmp(passagem.cpfCliente, cpfCliente) == 0 && passagem.statusRegistro == 1) {
+            printf("Código da Reserva: %s, Voo: %s, Poltrona: %d\n",
+                   passagem.codigoReserva, passagem.codigoVoo, passagem.numeroPoltrona);
+            encontrado = 1;
+        }
+    }
+
+    if (!encontrado) {
+        printf("Nenhuma passagem encontrada para o CPF informado.\n");
+    }
+}
+
+void cancelarPassagem(FILE* arqVoos, FILE* arqPassagens) {
+    char codigoReserva[15];
+    Passagem passagem;
+    Voo voo;
+    int encontrado = 0;
+
+    printf("Digite o codigo da reserva: ");
+    fgets(codigoReserva, sizeof(codigoReserva), stdin);
+    removerEnter(codigoReserva);
+
+    fseek(arqPassagens, 0, SEEK_SET);
+    while (fread(&passagem, sizeof(Passagem), 1, arqPassagens)) {
+        if (strcmp(passagem.codigoReserva, codigoReserva) == 0 && passagem.statusRegistro == 1) {
+            passagem.statusRegistro = 0;
+
+            // Liberar a poltrona no voo
+            int posicaoVoo = consultarVoo(arqVoos, passagem.codigoVoo);
+            fseek(arqVoos, posicaoVoo, SEEK_SET);
+            fread(&voo, sizeof(Voo), 1, arqVoos);
+
+            int linha = (passagem.numeroPoltrona - 1) / 6;
+            int coluna = (passagem.numeroPoltrona - 1) % 6;
+            voo.mapaPoltronas[linha][coluna] = 'L';
+            voo.poltronasDisponiveis++;
+
+            fseek(arqVoos, posicaoVoo, SEEK_SET);
+            fwrite(&voo, sizeof(Voo), 1, arqVoos);
+
+            encontrado = 1;
+
+            // Atualizar status da passagem
+            fseek(arqPassagens, -sizeof(Passagem), SEEK_CUR);
+            fwrite(&passagem, sizeof(Passagem), 1, arqPassagens);
+            break;
+        }
+    }
+
+    if (encontrado) {
+        printf("Passagem cancelada com sucesso.\n");
+    } else {
+        printf("Reserva nao encontrada ou ja cancelada.\n");
+    }
+}
+
+void consultarPassageirosVoo(FILE* arqClientes, FILE* arqVoos, FILE* arqPassagens) {
+    char codigoVoo[10]; // Buffer para armazenar o código do voo
+    Passagem passagem;
+    Clientes cliente;
+    Voo voo;
+    int encontrado = 0;
+
+    // Solicitar o código do voo ao usuário
+    printf("Digite o codigo do voo: ");
+    scanf("%9s", codigoVoo);
+    getchar();
+
+    // Validar a existência do voo usando a função consultarVoo
+    if (!consultarVoo(arqVoos, codigoVoo)) {
+        printf("Voo nao encontrado. Verifique o codigo e tente novamente.\n");
+        return;
+    }
+
+    // Exibir detalhes do voo
+    printf("Voo encontrado: Codigo: %s, Origem: %s, Destino: %s\n",
+           voo.codigo, voo.origem, voo.destino);
+
+    // Procurar passageiros associados ao voo
+    fseek(arqPassagens, 0, SEEK_SET);
+    while (fread(&passagem, sizeof(Passagem), 1, arqPassagens)) {
+        if (strcmp(passagem.codigoVoo, codigoVoo) == 0 && passagem.statusRegistro == 1) {
+            // Verificar cliente associado à passagem
+            if (consultarCliente(arqClientes, passagem.cpfCliente)) {
+                printf("CPF: %s, Nome: %s, Poltrona: %d\n",
+                       cliente.cpf, cliente.nome, passagem.numeroPoltrona);
+                encontrado = 1;
+            } else {
+                printf("Erro: Cliente com CPF %s nao encontrado.\n", passagem.cpfCliente);
+            }
+        }
+    }
+
+    if (!encontrado) {
+        printf("Nenhum passageiro encontrado para o voo informado.\n");
+    }
+}
+
+void funcPassagens(FILE* arq1, FILE* arq2, FILE* arq3) {
+    int escolha, continuar = 1;
+
+    while (continuar) {
+        printf("\nMenu de Passagens\n");
+        printf("1 - Comprar Passagem\n");
+        printf("2 - Consultar Passagens de um Cliente\n");
+        printf("3 - Cancelar Passagem\n");
+        printf("4 - Consultar Passageiros de um Voo\n");
+        printf("5 - Voltar\n");
+        printf("Escolha uma opção: ");
+        scanf("%d", &escolha);
+        getchar();
+
+        switch (escolha) {
+            case 1:
+                comprarPassagem(arq1, arq2, arq3);
+                break;
+            case 2:
+                consultarPassagensCliente(arq1, arq3);
+                break;
+            case 3:
+                cancelarPassagem(arq2, arq2);
+                break;
+            case 4:
+                consultarPassageirosVoo(arq1, arq2, arq3);
+                break;
+            case 5:
+                continuar = 0;
+                break;
+            default:
+                printf("Opcao invalida! Tente novamente.\n");
+        }
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////
 void removerFisicamenteClientes(FILE* arq1) {
     FILE* temp = fopen("tempClientes.bin", "w+b");
     if (!temp) {
@@ -594,7 +843,7 @@ int main() {
                             funcVoos(arq2);
                             break;
                         case 3:
-                            // funcControle(arq3);
+                            funcPassagens(arq1, arq2, arq3);
                             break;
                         case 4:
                             continuar = 0;
