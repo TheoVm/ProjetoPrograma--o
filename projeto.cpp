@@ -5,7 +5,7 @@
 typedef struct clientes{
     char nome[30];
     char email[30];
-    int cpf;
+    char cpf[12];
     char telefone[15];
     int statusRegistro;
 }Clientes;
@@ -68,12 +68,24 @@ int telefoneValido(char* telefone) {
     return 1; // Telefone válido
 }
 
-int consultarCliente(FILE* arq1, int cpf) {
+int cpfValido(char* cpf) {
+    if (strlen(cpf) != 11) { // Verifica se o CPF tem 11 dígitos
+        return 0;
+    }
+    for (int i = 0; cpf[i] != '\0'; i++) {
+        if (!isdigit(cpf[i])) { // Verifica se todos os caracteres são números
+            return 0;
+        }
+    }
+    return 1;
+}
+
+int consultarCliente(FILE* arq1, char* cpf) {
     Clientes verificar;
     fseek(arq1, 0, SEEK_SET);
 
     while (fread(&verificar, sizeof(Clientes), 1, arq1) == 1) {
-        if (verificar.cpf == cpf) {
+        if (strcmp(verificar.cpf, cpf) == 0) {
             return ftell(arq1) - sizeof(Clientes);
         }
     }
@@ -81,50 +93,54 @@ int consultarCliente(FILE* arq1, int cpf) {
 }
 
 void cadastarClientes(FILE* arq1){
-    int i = 0;
     int status;
-    Clientes vet[1];
+    Clientes vet;
 
     printf("Informe o nome:");
-    fgets(vet[i].nome, 30, stdin);
-    removerEnter(vet[i].nome);
+    fgets(vet.nome, sizeof(vet.nome), stdin);
+    removerEnter(vet.nome);
     // Validação do nome
-        while (!nomeValido(vet[i].nome)) {
+        while (!nomeValido(vet.nome)) {
             printf("Nome inválido. Deve conter apenas letras e espaços. Tente novamente: ");
-            fgets(vet[i].nome, 30, stdin);
-            removerEnter(vet[i].nome);
+            fgets(vet.nome, sizeof(vet.nome), stdin);
+            removerEnter(vet.nome);
         }
 
     printf("Informe o email:");
-    fgets(vet[i].email, 30, stdin);
-    removerEnter(vet[i].email);
+    fgets(vet.email, sizeof(vet.email), stdin);
+    removerEnter(vet.email);
 
-    printf("Informe o cpf:"); 
-    scanf("%d", &vet[i].cpf);
-    getchar();
-    while (consultarCliente(arq1, vet[i].cpf) != -1) {
-        printf("Usuário com este CPF já registrado. Tente novamente: ");
-        scanf("%d", &vet[i].cpf);
-        getchar();
+    printf("Informe o CPF (somente números): ");
+    fgets(vet.cpf, sizeof(vet.cpf), stdin);
+    removerEnter(vet.cpf);
+    while (!cpfValido(vet.cpf) || consultarCliente(arq1, vet.cpf) != -1) {
+        if (!cpfValido(vet.cpf)) {
+            printf("CPF invalido. Deve conter exatamente 11 digitos. Tente novamente: ");
+        } else {
+            printf("CPF ja cadastrado. Tente novamente: ");
+        }
+        fgets(vet.cpf, 12, stdin);
+        removerEnter(vet.cpf);
     }
 
-    printf("Informe o número de telefone(Apenas numeros): ");
-    fgets(vet[i].telefone, 15, stdin);
-    removerEnter(vet[i].telefone);
-
+    printf("Informe o numero de telefone(Apenas numeros):");
+    fflush(stdin);
+    fgets(vet.telefone, sizeof(vet.telefone), stdin);
+    removerEnter(vet.telefone);
     // Validação do número de telefone
-    while (!telefoneValido(vet[i].telefone)) {
-        printf("Número de telefone inválido(Apenas numeros). Tente novamente: ");
-        fgets(vet[i].telefone, 15, stdin);
-        removerEnter(vet[i].telefone);
+    while (!telefoneValido(vet.telefone)) {
+        printf("Numero de telefone invalido(Apenas numeros). Tente novamente: ");
+        fflush(stdin);
+        fgets(vet.telefone, sizeof(vet.telefone), stdin);
+        removerEnter(vet.telefone);
     }
 
-    vet[i].statusRegistro = 1;
+    vet.statusRegistro = 1;
 
     fseek(arq1, sizeof(Clientes), SEEK_END);
-    status = fwrite(&vet[i], sizeof(Clientes), 1, arq1);
+    status = fwrite(&vet, sizeof(Clientes), 1, arq1);
     if (status == 1){
-        printf("Regsitrado! \n");
+        printf("Registrado! \n");
     } else {
         printf("Erro ao tentar registrar! \n");
     }
@@ -193,7 +209,7 @@ void ExibirDados(FILE* arq1, int posicao){
     printf("Nome: %s\n", exibir[0].nome);
     printf("Email: %s\n", exibir[0].email);
     printf("Telefone: %s\n", exibir[0].telefone);
-    printf("CPF: %d\n", exibir[0].cpf);
+    printf("CPF: %s\n", exibir[0].cpf);
     printf("Status: %d\n", exibir[0].statusRegistro);
 }
 
@@ -214,12 +230,12 @@ void removerCLiente(FILE* arq1, int posicao){
     } else {
         printf("Erro ao remover usuario!\n");
     }
-
 }
 
 void funcClientes(FILE* arq1){
     int escolha, continuar = 1;
-    int cpf, posicao;
+    char cpf[12];
+    int posicao;
     
     while (continuar == 1){
 
@@ -239,8 +255,8 @@ void funcClientes(FILE* arq1){
                 break;
             case 2:
                 printf("Digite o CPF do usuario: ");
-                scanf("%d", &cpf);
-                getchar();
+                fgets(cpf, sizeof(cpf), stdin);
+                removerEnter(cpf);
                 posicao = consultarCliente(arq1, cpf);
                 if (posicao != -1) {
                     fseek(arq1, posicao, SEEK_SET);
@@ -251,8 +267,8 @@ void funcClientes(FILE* arq1){
                 break;
             case 3:
                 printf("Digite o CPF do usuario: ");
-                scanf("%d", &cpf);
-                getchar();
+                fgets(cpf, sizeof(cpf), stdin);
+                removerEnter(cpf);
                 posicao = consultarCliente(arq1, cpf);
                 if (posicao != -1) {
                     fseek(arq1, posicao, SEEK_SET);
@@ -263,8 +279,8 @@ void funcClientes(FILE* arq1){
                 break;
             case 4:
                 printf("Digite o CPF do usuario: ");
-                scanf("%d", &cpf);
-                getchar();
+                fgets(cpf, sizeof(cpf), stdin);
+                removerEnter(cpf);
                 posicao = consultarCliente(arq1, cpf);
                 if (posicao != -1) {
                     fseek(arq1, posicao, SEEK_SET);
@@ -282,6 +298,8 @@ void funcClientes(FILE* arq1){
         }
     }
 }
+
+
 
 void funcVoos(){
 
@@ -313,7 +331,7 @@ void removerFisicamenteClientes(FILE* arq1) {
     remove("Clientes.bin");
     rename("tempClientes.bin", "Clientes.bin");
 
-    printf("Remoção física concluída! Registros removidos foram excluídos permanentemente.\n");
+    printf("Remocao fisica concluida! Registros removidos foram excluidos permanentemente.\n");
 }
 
 int main() {
