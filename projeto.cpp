@@ -573,6 +573,7 @@ void comprarPassagem(FILE* arqClientes, FILE* arqVoos, FILE* arqPassagens) {
 
     // Código do voo
     printf("Digite o codigo do voo: ");
+    fflush(stdin);
     fgets(novaPassagem.codigoVoo, sizeof(novaPassagem.codigoVoo), stdin);
     removerEnter(novaPassagem.codigoVoo);
 
@@ -596,7 +597,7 @@ void comprarPassagem(FILE* arqClientes, FILE* arqVoos, FILE* arqPassagens) {
     scanf("%d", &poltronaEscolhida);
     getchar();
 
-    while (poltronaEscolhida < 1 || poltronaEscolhida > 36 || !verificarPoltronaDisponivel(&voo, poltronaEscolhida)) {
+    while (poltronaEscolhida < 1 || poltronaEscolhida > 36 || verificarPoltronaDisponivel(&voo, poltronaEscolhida)) {
         printf("Poltrona inválida ou já ocupada. Escolha novamente: ");
         scanf("%d", &poltronaEscolhida);
         getchar();
@@ -713,7 +714,7 @@ void consultarPassageirosVoo(FILE* arqClientes, FILE* arqVoos, FILE* arqPassagen
     getchar();
 
     // Validar a existência do voo usando a função consultarVoo
-    if (!consultarVoo(arqVoos, codigoVoo)) {
+    if (consultarVoo(arqVoos, codigoVoo)) {
         printf("Voo nao encontrado. Verifique o codigo e tente novamente.\n");
         return;
     }
@@ -728,8 +729,8 @@ void consultarPassageirosVoo(FILE* arqClientes, FILE* arqVoos, FILE* arqPassagen
         if (strcmp(passagem.codigoVoo, codigoVoo) == 0 && passagem.statusRegistro == 1) {
             // Verificar cliente associado à passagem
             if (consultarCliente(arqClientes, passagem.cpfCliente)) {
-                printf("CPF: %s, Nome: %s, Poltrona: %d\n",
-                       cliente.cpf, cliente.nome, passagem.numeroPoltrona);
+                fread(&cliente, sizeof(Clientes), 1, arqClientes);
+                printf("CPF: %s, Nome: %s, Poltrona: %d\n", cliente.cpf, cliente.nome, passagem.numeroPoltrona);
                 encontrado = 1;
             } else {
                 printf("Erro: Cliente com CPF %s nao encontrado.\n", passagem.cpfCliente);
