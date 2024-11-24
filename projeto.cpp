@@ -311,6 +311,18 @@ int codigoValido(char* codigo) {
     return 1; // Código válido
 }
 
+int consultarVoo(FILE* arq, char* codigo) {
+    Voo voo;
+    fseek(arq, 0, SEEK_SET);  // Vai para o início do arquivo
+
+    while (fread(&voo, sizeof(Voo), 1, arq) == 1) {
+        if (strcmp(voo.codigo, codigo) == 0) {
+            return ftell(arq) - sizeof(Voo); // Retorna a posição do voo no arquivo
+        }
+    }
+    return -1; // Não encontrado
+}
+
 int vooJaCadastrado(FILE* arq, char* codigo) {
     Voo voo;
     fseek(arq, 0, SEEK_SET);
@@ -320,6 +332,66 @@ int vooJaCadastrado(FILE* arq, char* codigo) {
         }
     }
     return 0; // Voo não cadastrado
+}
+
+void alterarValorPassagem(FILE* arq) {
+    char codigo[10];
+    printf("Digite o código do voo para alterar o valor da passagem: ");
+    fgets(codigo, sizeof(codigo), stdin);
+    removerEnter(codigo);
+
+    Voo voo;
+    int posicao = consultarVoo(arq, codigo);
+    if (posicao == -1) {
+        printf("Voo não encontrado.\n");
+        return;
+    }
+
+    printf("Digite o novo valor da passagem: ");
+    float novoValor;
+    scanf("%f", &novoValor);
+    getchar(); // Limpa o buffer
+    fseek(arq, posicao, SEEK_SET);
+    fread(&voo, sizeof(Voo), 1, arq);
+
+    voo.valorPassagem = novoValor;
+
+    fseek(arq, posicao, SEEK_SET); // Posiciona no registro do voo encontrado
+    if (fwrite(&voo, sizeof(Voo), 1, arq)) {
+        printf("Valor da passagem alterado com sucesso!\n");
+    } else {
+        printf("Erro ao alterar o valor da passagem.\n");
+    }
+}
+
+void cancelarVoo(FILE* arq) {
+    char codigo[10];
+    printf("Digite o código do voo a ser cancelado: ");
+    fgets(codigo, sizeof(codigo), stdin);
+    removerEnter(codigo);
+
+    Voo voo;
+    int posicao = consultarVoo(arq, codigo);
+
+    if (posicao == -1) {
+        printf("Voo não encontrado.\n");
+        return;
+    }
+
+    fseek(arq, posicao, SEEK_SET); // Posiciona no voo encontrado
+    fread(&voo, sizeof(Voo), 1, arq);
+
+    if (voo.poltronasDisponiveis == voo.poltronasExistentes) {
+        voo.statusRegistro = 0; // Marca como deletado
+        fseek(arq, posicao, SEEK_SET); // Posiciona no registro do voo para atualização
+        if (fwrite(&voo, sizeof(Voo), 1, arq)) {
+            printf("Voo cancelado com sucesso!\n");
+        } else {
+            printf("Erro ao cancelar o voo.\n");
+        }
+    } else {
+        printf("Não é possível cancelar o voo, pois existem passagens vendidas.\n");
+    }
 }
 
 void cadastrarVoo(FILE* arq) {
@@ -351,7 +423,7 @@ void cadastrarVoo(FILE* arq) {
     removerEnter(voo.dataPartida);
 
     printf("Digite o horario de partida (hh:mm): ");
-    fgets(voo.horarioPartida, 6, stdin);
+    scanf("%5s", voo.horarioPartida);
     removerEnter(voo.horarioPartida);
 
     voo.poltronasExistentes = 36;
@@ -418,19 +490,21 @@ void buscarVoosMenu(FILE* arq2) {
     buscarVoos(arq2, origem, destino, data);
 }
 
-void funcVoos(FILE* arq2){
+void funcVoos(FILE* arq2) {
     int escolha, continuar = 1;
-    
-    while (continuar == 1){
-        printf("\nQual funcionalidades deseja acessar? \n");
+
+    while (continuar == 1) {
+        printf("\nQual funcionalidade deseja acessar? \n");
         printf("1 - Cadastrar Voo \n");
         printf("2 - Buscar Voo \n");
+        printf("3 - Alterar valor de passagem \n");
+        printf("4 - Cancelar um voo \n");
         printf("5 - Voltar \n");
         printf("Digite sua escolha: ");
         scanf("%d", &escolha);
         getchar();
-     
-        switch (escolha){
+
+        switch (escolha) {
             case 1:
                 cadastrarVoo(arq2);
                 break;
@@ -438,8 +512,10 @@ void funcVoos(FILE* arq2){
                 buscarVoosMenu(arq2);
                 break;
             case 3:
+                alterarValorPassagem(arq2);
                 break;
             case 4:
+                cancelarVoo(arq2);
                 break;
             case 5:
                 continuar = 0;
@@ -449,6 +525,10 @@ void funcVoos(FILE* arq2){
         }
     }
 }
+
+//////////////////////////////////////////////////////////////////////////////
+
+
 
 void removerFisicamenteClientes(FILE* arq1) {
     FILE* temp = fopen("tempClientes.bin", "w+b");
