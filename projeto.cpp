@@ -6,7 +6,7 @@ typedef struct clientes{
     char nome[30];
     char email[30];
     int cpf;
-    int telefone;
+    char telefone[15];
     int statusRegistro;
 }Clientes;
 
@@ -49,7 +49,7 @@ void removerEnter(char* str) {
 	}
 }
 
-int nomeValido(const char* nome) {
+int nomeValido(char* nome) {
     for (int i = 0; nome[i] != '\0'; i++) {
         if (!isalpha(nome[i]) && nome[i] != ' ') {
             return 0; // Nome inválido
@@ -58,9 +58,20 @@ int nomeValido(const char* nome) {
     return 1; // Nome válido
 }
 
-void cadastarClientes(Clientes* vet, FILE* arq1){
+int telefoneValido(const char* telefone) {
+    // Verifica se contém apenas dígitos
+    for (int i = 0; telefone[i] != '\0'; i++) {
+        if (!isdigit(telefone[i])) {
+            return 0; // Contém caractere não numérico
+        }
+    }
+    return 1; // Telefone válido
+}
+
+void cadastarClientes(FILE* arq1){
     int i = 0;
     int status;
+    Clientes vet[1];
 
     printf("Informe o nome:");
     fgets(vet[i].nome, 30, stdin);
@@ -71,7 +82,7 @@ void cadastarClientes(Clientes* vet, FILE* arq1){
             fgets(vet[i].nome, 30, stdin);
             removerEnter(vet[i].nome);
         }
-        
+
     printf("Informe o email:");
     fgets(vet[i].email, 30, stdin);
     removerEnter(vet[i].email);
@@ -80,15 +91,22 @@ void cadastarClientes(Clientes* vet, FILE* arq1){
     scanf("%d", &vet[i].cpf);
     getchar();
 
-    printf("Informe o numero de telefone:"); 
-    scanf("%d", &vet[i].telefone);
-    getchar();
+    printf("Informe o número de telefone(Apenas numeros): ");
+    fgets(vet[i].telefone, 15, stdin);
+    removerEnter(vet[i].telefone);
+
+    // Validação do número de telefone
+    while (!telefoneValido(vet[i].telefone)) {
+        printf("Número de telefone inválido(Apenas numeros). Tente novamente: ");
+        fgets(vet[i].telefone, 15, stdin);
+        removerEnter(vet[i].telefone);
+    }
 
     printf("Informe o status de registro:");
     scanf("%d", &vet[i].statusRegistro);
     getchar();
 
-
+    fseek(arq1, sizeof(Clientes), SEEK_END);
     status = fwrite(&vet[i], sizeof(Clientes), 1, arq1);
     if (status == 1){
         printf("Regsitrado! \n");
@@ -97,21 +115,55 @@ void cadastarClientes(Clientes* vet, FILE* arq1){
     }
 }
 
-void consultarCliente(FILE* arq1){
+void alterarDados(FILE* arq1){
+    Clientes alterar[1];
+    int procurar;
+    // int escolha;
+
+    printf("Digite o CPF do usuario: ");
+    scanf("%d",&procurar);
+    getchar();
+
+    fseek(arq1, 0, SEEK_SET);
+    while (!feof(arq1)){
+        fread(&alterar, sizeof(Clientes), 1, arq1);
+        if (alterar[0].cpf == procurar){
+            printf("Qual informação deseja alterar?");
+            printf("1 - Nome \n");
+            printf("2 - Telefone \n");
+            printf("3 - Email \n");
+            printf("4 - Voltar \n");
+            break;
+        }
+    }
+}
+
+void ExibirDados(FILE* arq1){
     Clientes exibir[1];
+    int procurar;
 
-    fread(&exibir, sizeof(Clientes), 1, arq1);
+    printf("Digite o CPF do usuario: ");
+    scanf("%d",&procurar);
+    getchar();
 
-    printf("%s\n", exibir[0].nome);
-    printf("%s\n", exibir[0].email);
-    printf("%d\n", exibir[0].cpf);
-    printf("%d\n", exibir[0].telefone);
-    printf("%d\n", exibir[0].statusRegistro);
+    fseek(arq1, 0, SEEK_SET);
+    while (!feof(arq1)){
+        fread(&exibir, sizeof(Clientes), 1, arq1);
+        if (exibir[0].cpf == procurar){
+            printf("%s\n", exibir[0].nome);
+            printf("%s\n", exibir[0].email);
+            printf("%s\n", exibir[0].telefone);
+            printf("%d\n", exibir[0].cpf);
+            printf("%d\n", exibir[0].statusRegistro);
+            break;
+        } else {
+        }
+    }
+
 }
 
 void funcClientes(FILE* arq1){
     int escolha, continuar = 1;
-    Clientes cliente[1];
     
     while (continuar == 1){
         printf("\nQual funcionalidades deseja acessar? \n");
@@ -127,19 +179,19 @@ void funcClientes(FILE* arq1){
                     
         switch (escolha){
             case 1:
-                cadastarClientes(cliente, arq1);
+                cadastarClientes(arq1);
                 break;
             case 2:
-                printf("Implementar funcionalidade. \n");
+                alterarDados(arq1);
                 break;
             case 3:
-                printf("Implementar funcionalidade. \n");
+                ExibirDados(arq1);
                 break;
             case 4:
                 printf("Implementar funcionalidade. \n");
                 break;
             case 5:
-                consultarCliente(arq1);
+                printf("Implementar funcionalidade. \n");
                 break;
             case 6:
                 continuar = 0;
