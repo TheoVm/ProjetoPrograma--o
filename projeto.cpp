@@ -58,7 +58,7 @@ int nomeValido(char* nome) {
     return 1; // Nome válido
 }
 
-int telefoneValido(const char* telefone) {
+int telefoneValido(char* telefone) {
     // Verifica se contém apenas dígitos
     for (int i = 0; telefone[i] != '\0'; i++) {
         if (!isdigit(telefone[i])) {
@@ -66,6 +66,18 @@ int telefoneValido(const char* telefone) {
         }
     }
     return 1; // Telefone válido
+}
+
+int consultarCliente(FILE* arq1, int cpf) {
+    Clientes verificar;
+    fseek(arq1, 0, SEEK_SET);
+
+    while (fread(&verificar, sizeof(Clientes), 1, arq1) == 1) {
+        if (verificar.cpf == cpf) {
+            return ftell(arq1) - sizeof(Clientes);
+        }
+    }
+    return -1;
 }
 
 void cadastarClientes(FILE* arq1){
@@ -90,6 +102,11 @@ void cadastarClientes(FILE* arq1){
     printf("Informe o cpf:"); 
     scanf("%d", &vet[i].cpf);
     getchar();
+    while (consultarCliente(arq1, vet[i].cpf) != -1) {
+        printf("Usuário com este CPF já registrado. Tente novamente: ");
+        scanf("%d", &vet[i].cpf);
+        getchar();
+    }
 
     printf("Informe o número de telefone(Apenas numeros): ");
     fgets(vet[i].telefone, 15, stdin);
@@ -102,9 +119,7 @@ void cadastarClientes(FILE* arq1){
         removerEnter(vet[i].telefone);
     }
 
-    printf("Informe o status de registro:");
-    scanf("%d", &vet[i].statusRegistro);
-    getchar();
+    vet[i].statusRegistro = 1;
 
     fseek(arq1, sizeof(Clientes), SEEK_END);
     status = fwrite(&vet[i], sizeof(Clientes), 1, arq1);
@@ -117,83 +132,149 @@ void cadastarClientes(FILE* arq1){
 
 void alterarDados(FILE* arq1){
     Clientes alterar[1];
-    int procurar;
-    // int escolha;
 
-    printf("Digite o CPF do usuario: ");
-    scanf("%d",&procurar);
+    fread(&alterar[0], sizeof(Clientes), 1, arq1);
+    fseek(arq1, -sizeof(Clientes), SEEK_CUR);
+    int escolha;
+    int status;
+
+    printf("Qual informacao deseja alterar?\n");
+    printf("1 - Nome \n");
+    printf("2 - Telefone \n");
+    printf("3 - Email \n");
+    printf("4 - Voltar \n");
+    printf("Digite sua escolha: ");
+    scanf("%d", &escolha);
     getchar();
 
-    fseek(arq1, 0, SEEK_SET);
-    while (!feof(arq1)){
-        fread(&alterar, sizeof(Clientes), 1, arq1);
-        if (alterar[0].cpf == procurar){
-            printf("Qual informação deseja alterar?");
-            printf("1 - Nome \n");
-            printf("2 - Telefone \n");
-            printf("3 - Email \n");
-            printf("4 - Voltar \n");
+    switch (escolha){
+        case 1:
+            printf("Digite o novo nome: ");
+            fgets(alterar[0].nome, 30, stdin);
+            removerEnter(alterar[0].nome);
             break;
-        }
+        case 2:
+            printf("Digite o novo telefone: ");
+            fgets(alterar[0].telefone, 30, stdin);
+            removerEnter(alterar[0].telefone);
+            while (!telefoneValido(alterar[0].telefone)) {
+                printf("Número de telefone inválido(Apenas numeros). Tente novamente: ");
+                fgets(alterar[0].telefone, 15, stdin);
+                removerEnter(alterar[0].telefone);
+            }
+            break;
+        case 3:
+            printf("Digite o novo email: ");
+            fgets(alterar[0].email, 30, stdin);
+            removerEnter(alterar[0].email);
+            break;
+        case 4:
+            break;
+        default:
+            printf("Digite uma opção válida. \n");
+    }
+    
+    status = fwrite(&alterar[0], sizeof(Clientes), 1, arq1);
+    fflush(arq1);
+    if (status == 1){
+        printf("Alterado! \n");
+    } else {
+        printf("Erro ao alterar! \n");
     }
 }
 
-void ExibirDados(FILE* arq1){
+void ExibirDados(FILE* arq1, int posicao){
     Clientes exibir[1];
-    int procurar;
 
-    printf("Digite o CPF do usuario: ");
-    scanf("%d",&procurar);
-    getchar();
+    fread(&exibir[0], sizeof(Clientes), 1, arq1);
+    fseek(arq1, -sizeof(Clientes), SEEK_CUR);
 
-    fseek(arq1, 0, SEEK_SET);
-    while (!feof(arq1)){
-        fread(&exibir, sizeof(Clientes), 1, arq1);
-        if (exibir[0].cpf == procurar){
-            printf("%s\n", exibir[0].nome);
-            printf("%s\n", exibir[0].email);
-            printf("%s\n", exibir[0].telefone);
-            printf("%d\n", exibir[0].cpf);
-            printf("%d\n", exibir[0].statusRegistro);
-            break;
-        } else {
-        }
+    fseek(arq1, posicao, SEEK_SET); 
+    printf("Nome: %s\n", exibir[0].nome);
+    printf("Email: %s\n", exibir[0].email);
+    printf("Telefone: %s\n", exibir[0].telefone);
+    printf("CPF: %d\n", exibir[0].cpf);
+    printf("Status: %d\n", exibir[0].statusRegistro);
+}
+
+void removerCLiente(FILE* arq1, int posicao){
+    Clientes remover[1];
+    int status;
+
+    fread(&remover[0], sizeof(Clientes), 1, arq1);
+    fseek(arq1, -sizeof(Clientes), SEEK_CUR);
+
+    fseek(arq1, posicao, SEEK_SET);
+    remover[0].statusRegistro = 0;
+
+    status = fwrite(&remover[0], sizeof(Clientes), 1, arq1);
+    fflush(arq1);
+    if (status == 1){
+        printf("Usuario sera removido ao final da aplicacao!\n");
+    } else {
+        printf("Erro ao remover usuario!\n");
     }
 
 }
 
 void funcClientes(FILE* arq1){
     int escolha, continuar = 1;
+    int cpf, posicao;
     
     while (continuar == 1){
+
         printf("\nQual funcionalidades deseja acessar? \n");
         printf("1 - Cadastrar Cliente \n");
         printf("2 - Alterar Dados \n");
         printf("3 - Exibir Dados \n");
         printf("4 - Remover Cliente \n");
-        printf("5 - Consultar Cliente \n");
-        printf("6 - Voltar \n");
+        printf("5 - Voltar \n");
         printf("Digite sua escolha: ");
         scanf("%d", &escolha);
         getchar();
-                    
+     
         switch (escolha){
             case 1:
                 cadastarClientes(arq1);
                 break;
             case 2:
-                alterarDados(arq1);
+                printf("Digite o CPF do usuario: ");
+                scanf("%d", &cpf);
+                getchar();
+                posicao = consultarCliente(arq1, cpf);
+                if (posicao != -1) {
+                    fseek(arq1, posicao, SEEK_SET);
+                    alterarDados(arq1);
+                } else {
+                    printf("Nenhum usuario com este CPF cadastrado.\n");
+                }
                 break;
             case 3:
-                ExibirDados(arq1);
+                printf("Digite o CPF do usuario: ");
+                scanf("%d", &cpf);
+                getchar();
+                posicao = consultarCliente(arq1, cpf);
+                if (posicao != -1) {
+                    fseek(arq1, posicao, SEEK_SET);
+                    ExibirDados(arq1, posicao);
+                } else {
+                    printf("Nenhum usuario com este CPF cadastrado.\n");
+                }
                 break;
             case 4:
-                printf("Implementar funcionalidade. \n");
+                printf("Digite o CPF do usuario: ");
+                scanf("%d", &cpf);
+                getchar();
+                posicao = consultarCliente(arq1, cpf);
+                if (posicao != -1) {
+                    fseek(arq1, posicao, SEEK_SET);
+                    removerCLiente(arq1, posicao);
+                } else {
+                    printf("Nenhum usuario com este CPF cadastrado.\n");
+                }
+                break;
                 break;
             case 5:
-                printf("Implementar funcionalidade. \n");
-                break;
-            case 6:
                 continuar = 0;
                 break;
             default:
